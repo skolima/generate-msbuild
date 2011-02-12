@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.Linq;
 using System.Text;
 
@@ -7,6 +8,7 @@ using NAnt.Core;
 using NAnt.Core.Attributes;
 
 using MB = Microsoft.Build.Evaluation;
+using System.IO;
 
 namespace GenerateMsBuildTask
 {
@@ -19,7 +21,8 @@ namespace GenerateMsBuildTask
             {"resgen", new ResgenTranslator()}
         };
 
-        private MB.ProjectCollection solution = new MB.ProjectCollection();
+        private IDictionary<string, string> projectOutputs = new Dictionary<string, string>();
+        private IList<Tuple<Guid, string>> projectsList = new List<Tuple<Guid, string>>();
 
         protected override void ExecuteTask()
         {
@@ -37,7 +40,11 @@ namespace GenerateMsBuildTask
 
         public void BuildFinished(object sender, BuildEventArgs e)
         {
-        }
+            if (e.Exception == null && e.Project == Project)
+            {
+                GenerateSolutionFile(Project);
+            }
+        }        
 
         public void BuildStarted(object sender, BuildEventArgs e)
         {
@@ -61,13 +68,53 @@ namespace GenerateMsBuildTask
             {
                 if (taskTranslators.ContainsKey(e.Task.Name))
                 {
-                    taskTranslators[e.Task.Name].TaskFinished(solution, e);
+                    taskTranslators[e.Task.Name].TaskFinished(this, e);
                 }
             }
         }
 
         public void TaskStarted(object sender, BuildEventArgs e)
         {
+        }
+
+        public string FindProjectReference(string dependencyFileName)
+        {
+            return projectOutputs.ContainsKey(dependencyFileName)
+                ? projectOutputs[dependencyFileName]
+                : null;
+        }
+
+        public void RegisterProjectInSolution(string outputFileName, string projectFilePath, Guid projectTypeGuid)
+        {
+            projectOutputs[outputFileName] = projectFilePath;
+            projectsList.Add(new Tuple<Guid, string>(projectTypeGuid, projectFilePath));
+        }
+
+        private void GenerateSolutionFile(NAnt.Core.Project Project)
+        {
+            var solutionPath = String.Format(
+                    "{0}{1}_{2}.sln",
+                    new FileInfo(Project.BuildFileLocalName).DirectoryName,
+                    Path.DirectorySeparatorChar,
+                    Project.ProjectName);
+            using (var solution = File.CreateText(solutionPath))
+            {
+                solution.WriteLine(@"Microsoft Visual Studio Solution File, Format Version 11.00");
+                solution.WriteLine("# Visual Studio 2010");
+                foreach (var project in projectsList)
+                {
+                    solution.WriteLine(
+                        "Project(\"{0:B}\") = \"{1}\", \"{1}\", \"{0:B}\"",
+                        project.Item1,
+                        project.Item2);
+                    solution.WriteLine("EndProject");
+                }
+                solution.WriteLine("Project(\"{2150E333-8FDC-42A3-9474-1A3956D46DE8}\") = \"Solution Items\", \"Solution Items\", \"{4D8FAB75-E6D2-4581-B7F0-BB11BCCEE0CA}\"");
+                solution.WriteLine("	ProjectSection(SolutionItems) = preProject");
+                solution.WriteLine("		{0} = {0}", Project.BuildFileLocalName);
+                solution.WriteLine("	EndProjectSection");
+                solution.WriteLine("EndProject");
+            }
         }
     }
 }

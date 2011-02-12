@@ -38,19 +38,26 @@ namespace GenerateMsBuildTask
         public void TaskFinished(object sender, BuildEventArgs e)
         {            
             var task = (CscTask)e.Task;
-            var solution = (MB.ProjectCollection)sender;
-            var project = ProjectRootElement.Create(solution);
+            var generator = (GenerateMsBuildTask)sender;
+            var project = ProjectRootElement.Create();
+            var projectFileName = String.Format(
+                    "{0}{1}_{2}.csproj",
+                    task.Sources.BaseDirectory.FullName,
+                    Path.DirectorySeparatorChar,
+                    Path.GetFileNameWithoutExtension(task.OutputFile.Name));
+
             project.DefaultTargets = "Build";
             SetKnownProperties(project.AddPropertyGroup(), task);
-            GenerateReferences(project.AddItemGroup(), task);
+            GenerateReferences(project.AddItemGroup(), task, generator);
             GenerateCompileIncludes(project.AddItemGroup(), task);
             project.AddImport(String.Format("$(MSBuildToolsPath){0}Microsoft.CSharp.targets", Path.DirectorySeparatorChar));
 
-            project.Save(String.Format(
-                "{0}{1}_{2}.csproj",
-                task.Sources.BaseDirectory.FullName,
-                Path.DirectorySeparatorChar,
-                Path.GetFileNameWithoutExtension(task.OutputFile.Name)));
+            generator.RegisterProjectInSolution(task.OutputFile.FullName, projectFileName, projectTypeGuid);
+            project.Save(projectFileName);
+        }
+
+        public void TaskStarted(object sender, BuildEventArgs e)
+        {
         }
 
         private void GenerateCompileIncludes(ProjectItemGroupElement itemGroup, CscTask task)
@@ -75,19 +82,27 @@ namespace GenerateMsBuildTask
             itemGroup.AddItem("None", MB.ProjectCollection.Escape(task.Project.BuildFileLocalName));
         }
 
-        private void GenerateReferences(ProjectItemGroupElement itemGroup, CscTask task)
+        private void GenerateReferences(ProjectItemGroupElement itemGroup, CscTask task, GenerateMsBuildTask generator)
         {
             foreach(var reference in task.References.FileNames)
             {
                 var name = Path.GetFileNameWithoutExtension(reference);
-                itemGroup.AddItem(
-                    "Reference",
-                    name,
-                    new[]
+                var matchedProject = generator.FindProjectReference(reference);
+                if (matchedProject == null)
+                {
+                    itemGroup.AddItem(
+                        "Reference",
+                        name,
+                        new[]
                     {
                         new KeyValuePair<string, string>("Name", name),
                         new KeyValuePair<string, string>("HintPath", MB.ProjectCollection.Escape(reference))
-                    });            
+                    });
+                }
+                else
+                {
+                    itemGroup.AddItem("ProjectReference", MB.ProjectCollection.Escape(matchedProject));
+                }
             }
             foreach (var reference in new[] { "mscorlib", "System", "System.Xml" })
             {
@@ -99,6 +114,7 @@ namespace GenerateMsBuildTask
         {
             // MSBuild properties http://msdn.microsoft.com/en-us/library/bb629394.aspx
             // NAnt CscTask properties http://nant.sourceforge.net/nightly/latest/help/tasks/csc.html
+            properties.AddProperty("AssemblyName", Path.GetFileNameWithoutExtension(task.OutputFile.FullName));
             if(!String.IsNullOrWhiteSpace(task.BaseAddress))
                 properties.AddProperty("BaseAddress", task.BaseAddress);
             properties.AddProperty("CheckForOverflowUnderflow", task.Checked.ToString());
@@ -138,8 +154,6 @@ namespace GenerateMsBuildTask
             properties.AddProperty("NoWarn", warnings.ToString());
         }
 
-        public void TaskStarted(object sender, BuildEventArgs e)
-        {
-        }
+        private static readonly Guid projectTypeGuid = new Guid("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}");
     }
 }

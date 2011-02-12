@@ -11,9 +11,10 @@ Add <generate-msbuild /> as the first thing under <project> in your NAnt build f
 Missing things
 --------------
 
-* project dependencies
-* master solution file
+* VS does not understand references before first build
+* passing NAnt tests (problem with resource embedding)
 * more testing
+* testing on a project with actual dependencies, not sequential build like NAnt
 
 Possible extensions
 --------------
