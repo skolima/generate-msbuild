@@ -95,7 +95,13 @@ namespace GenerateMsBuildTask
             {
                 foreach (var resource in resourceList.FileNames)
                 {
-                    itemGroup.AddItem("EmbeddedResource", MB.ProjectCollection.Escape(resource));
+                    itemGroup.AddItem(
+                        "EmbeddedResource",
+                        MB.ProjectCollection.Escape(resource),
+                        new[]
+                        {
+                            new KeyValuePair<string, string>("LogicalName", resourceList.GetManifestResourceName(resource))
+                        });
                 }
             }
             itemGroup.AddItem("None", MB.ProjectCollection.Escape(task.Project.BuildFileLocalName));

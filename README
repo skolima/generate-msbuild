@@ -11,7 +11,6 @@ Add <generate-msbuild /> as the first thing under <project> in your NAnt build f
 Missing things
 --------------
 
-* passing NAnt tests (problem with resource embedding)
 * more testing
 * testing on a project with actual dependencies, not sequential build like NAnt
 
