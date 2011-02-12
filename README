@@ -20,5 +20,5 @@ Possible extensions
 
 * update the projects instead of overwriting them
 * relative paths instead of absolute so the generated files can be shared
-* mapping for less common csc settings (e.g. warnings ignore list)
+* mapping for less common csc settings (added as I encounter projects using them)
 * more NAnt tasks supported by translation

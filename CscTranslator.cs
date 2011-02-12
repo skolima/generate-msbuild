@@ -9,6 +9,7 @@ using MB = Microsoft.Build.Evaluation;
 using Microsoft.Build.Construction;
 using System.Globalization;
 using NAnt.DotNet.Types;
+using NAnt.Core.Util;
 
 namespace GenerateMsBuildTask
 {
@@ -129,7 +130,12 @@ namespace GenerateMsBuildTask
             properties.AddProperty("TreatWarningsAsErrors", task.WarnAsError.ToString());
             // TODO: win32icon
             // TODO: win32res
-            // TODO: warnings to ignore (see CompilerBase.WriteNoWarnList())
+            // TODO: implement the rest of warning-disabling/enabling logic (see CompilerBase.WriteNoWarnList())
+            var warnings = new StringBuilder();
+            foreach(var warning in task.SuppressWarnings)
+                if(warning.IfDefined && ! warning.UnlessDefined)
+                warnings.AppendFormat("{0},", warning.Number);
+            properties.AddProperty("NoWarn", warnings.ToString());
         }
 
         public void TaskStarted(object sender, BuildEventArgs e)
