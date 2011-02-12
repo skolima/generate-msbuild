@@ -11,7 +11,6 @@ Add <generate-msbuild /> as the first thing under <project> in your NAnt build f
 Missing things
 --------------
 
-* VS does not understand references before first build
 * passing NAnt tests (problem with resource embedding)
 * more testing
 * testing on a project with actual dependencies, not sequential build like NAnt
@@ -19,7 +18,7 @@ Missing things
 Possible extensions
 --------------
 
-* update the projects instead of overwriting them
+* update the projects instead of overwriting them (and possibly ditch '_' prefix when this works)
 * relative paths instead of absolute so the generated files can be shared
 * mapping for less common csc settings (added as I encounter projects using them)
 * more NAnt tasks supported by translation

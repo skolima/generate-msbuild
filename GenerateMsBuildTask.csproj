@@ -49,6 +49,7 @@
   <ItemGroup>
     <Compile Include="CscTranslator.cs" />
     <Compile Include="GenerateMsBuildTask.cs" />
+    <Compile Include="ProjectInfo.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="ResgenTranslator.cs" />
   </ItemGroup>

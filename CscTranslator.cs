@@ -45,14 +45,15 @@ namespace GenerateMsBuildTask
                     task.Sources.BaseDirectory.FullName,
                     Path.DirectorySeparatorChar,
                     Path.GetFileNameWithoutExtension(task.OutputFile.Name));
+            var projectGuid = Guid.NewGuid();
 
             project.DefaultTargets = "Build";
-            SetKnownProperties(project.AddPropertyGroup(), task);
+            SetKnownProperties(project.AddPropertyGroup(), task, projectGuid);
             GenerateReferences(project.AddItemGroup(), task, generator);
             GenerateCompileIncludes(project.AddItemGroup(), task);
             project.AddImport(String.Format("$(MSBuildToolsPath){0}Microsoft.CSharp.targets", Path.DirectorySeparatorChar));
 
-            generator.RegisterProjectInSolution(task.OutputFile.FullName, projectFileName, projectTypeGuid);
+            generator.RegisterProjectInSolution(task.OutputFile.FullName, projectFileName, projectTypeGuid, projectGuid);
             project.Save(projectFileName);
         }
 
@@ -94,14 +95,21 @@ namespace GenerateMsBuildTask
                         "Reference",
                         name,
                         new[]
-                    {
-                        new KeyValuePair<string, string>("Name", name),
-                        new KeyValuePair<string, string>("HintPath", MB.ProjectCollection.Escape(reference))
-                    });
+                        {
+                            new KeyValuePair<string, string>("Name", name),
+                            new KeyValuePair<string, string>("HintPath", MB.ProjectCollection.Escape(reference))
+                        });
                 }
                 else
                 {
-                    itemGroup.AddItem("ProjectReference", MB.ProjectCollection.Escape(matchedProject));
+                    itemGroup.AddItem(
+                        "ProjectReference",
+                        MB.ProjectCollection.Escape(matchedProject.FilePath),
+                        new[]
+                        {
+                            new KeyValuePair<string, string>("Project", matchedProject.ProjectId.ToString("B")),
+                            new KeyValuePair<string, string>("Package", matchedProject.TypeId.ToString("B"))
+                        });
                 }
             }
             foreach (var reference in new[] { "mscorlib", "System", "System.Xml" })
@@ -110,11 +118,12 @@ namespace GenerateMsBuildTask
             }
         }
 
-        private void SetKnownProperties(ProjectPropertyGroupElement properties, CscTask task)
+        private void SetKnownProperties(ProjectPropertyGroupElement properties, CscTask task, Guid projectGuid)
         {
             // MSBuild properties http://msdn.microsoft.com/en-us/library/bb629394.aspx
             // NAnt CscTask properties http://nant.sourceforge.net/nightly/latest/help/tasks/csc.html
             properties.AddProperty("AssemblyName", Path.GetFileNameWithoutExtension(task.OutputFile.FullName));
+            properties.AddProperty("ProjectGuid", projectGuid.ToString("B"));
             if(!String.IsNullOrWhiteSpace(task.BaseAddress))
                 properties.AddProperty("BaseAddress", task.BaseAddress);
             properties.AddProperty("CheckForOverflowUnderflow", task.Checked.ToString());

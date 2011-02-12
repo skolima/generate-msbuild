@@ -21,8 +21,7 @@ namespace GenerateMsBuildTask
             {"resgen", new ResgenTranslator()}
         };
 
-        private IDictionary<string, string> projectOutputs = new Dictionary<string, string>();
-        private IList<Tuple<Guid, string>> projectsList = new List<Tuple<Guid, string>>();
+        private IDictionary<string, ProjectInfo> projectOutputs = new Dictionary<string, ProjectInfo>();
 
         protected override void ExecuteTask()
         {
@@ -77,17 +76,16 @@ namespace GenerateMsBuildTask
         {
         }
 
-        public string FindProjectReference(string dependencyFileName)
+        internal ProjectInfo FindProjectReference(string dependencyFileName)
         {
             return projectOutputs.ContainsKey(dependencyFileName)
                 ? projectOutputs[dependencyFileName]
                 : null;
         }
 
-        public void RegisterProjectInSolution(string outputFileName, string projectFilePath, Guid projectTypeGuid)
+        internal void RegisterProjectInSolution(string outputFileName, string projectFilePath, Guid projectTypeGuid, Guid projectGuid)
         {
-            projectOutputs[outputFileName] = projectFilePath;
-            projectsList.Add(new Tuple<Guid, string>(projectTypeGuid, projectFilePath));
+            projectOutputs[outputFileName] = new ProjectInfo(projectTypeGuid, projectFilePath, projectGuid);
         }
 
         private void GenerateSolutionFile(NAnt.Core.Project Project)
@@ -101,12 +99,13 @@ namespace GenerateMsBuildTask
             {
                 solution.WriteLine(@"Microsoft Visual Studio Solution File, Format Version 11.00");
                 solution.WriteLine("# Visual Studio 2010");
-                foreach (var project in projectsList)
+                foreach (var project in projectOutputs.Values)
                 {
                     solution.WriteLine(
-                        "Project(\"{0:B}\") = \"{1}\", \"{1}\", \"{0:B}\"",
-                        project.Item1,
-                        project.Item2);
+                        "Project(\"{0:B}\") = \"{1}\", \"{1}\", \"{2:B}\"",
+                        project.TypeId,
+                        project.FilePath,
+                        project.ProjectId);
                     solution.WriteLine("EndProject");
                 }
                 solution.WriteLine("Project(\"{2150E333-8FDC-42A3-9474-1A3956D46DE8}\") = \"Solution Items\", \"Solution Items\", \"{4D8FAB75-E6D2-4581-B7F0-BB11BCCEE0CA}\"");
