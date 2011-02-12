@@ -6,11 +6,21 @@ using System.Text;
 using NAnt.Core;
 using NAnt.Core.Attributes;
 
+using MB = Microsoft.Build.Evaluation;
+
 namespace GenerateMsBuildTask
 {
     [TaskName("generate-msbuild")]
     public class GenerateMsBuildTask : Task, IBuildListener
     {
+        private Dictionary<string, IBuildListener> taskTranslators = new Dictionary<string, IBuildListener>()
+        {
+            {"csc", new CscTranslator()},
+            {"resgen", new ResgenTranslator()}
+        };
+
+        private MB.ProjectCollection solution = new MB.ProjectCollection();
+
         protected override void ExecuteTask()
         {
             Project.BuildStarted += BuildStarted;
@@ -49,10 +59,9 @@ namespace GenerateMsBuildTask
         {
             if (e.Exception == null)
             {
-                switch (e.Task.Name) // TODO: handle other standard tasks as well
+                if (taskTranslators.ContainsKey(e.Task.Name))
                 {
-                    case "csc": break;
-                    case "resgen": break;
+                    taskTranslators[e.Task.Name].TaskFinished(solution, e);
                 }
             }
         }
