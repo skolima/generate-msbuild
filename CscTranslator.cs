@@ -41,6 +41,8 @@ namespace GenerateMsBuildTask
             var project = ProjectRootElement.Create(solution);
             project.DefaultTargets = "Build";
             SetKnownProperties(project.AddPropertyGroup(), task);
+            GenerateReferences(project.AddItemGroup(), task);
+            GenerateCompileIncludes(project.AddItemGroup(), task);
             project.AddImport(String.Format("$(MSBuildToolsPath){0}Microsoft.CSharp.targets", Path.DirectorySeparatorChar));
 
             project.Save(String.Format(
@@ -50,19 +52,66 @@ namespace GenerateMsBuildTask
                 Path.GetFileNameWithoutExtension(task.OutputFile.Name)));
         }
 
+        private void GenerateCompileIncludes(ProjectItemGroupElement itemGroup, CscTask task)
+        {
+            foreach (var include in task.Sources.FileNames)
+            {
+                itemGroup.AddItem(
+                    "Compile",
+                    MB.ProjectCollection.Escape(include),
+                    new[]
+                    {
+                        new KeyValuePair<string, string>("SubType", "Code")
+                    });
+            }
+            foreach (var resourceList in task.ResourcesList)
+            {
+                foreach (var resource in resourceList.FileNames)
+                {
+                    itemGroup.AddItem("EmbeddedResource", MB.ProjectCollection.Escape(resource));
+                }
+            }
+            itemGroup.AddItem("None", MB.ProjectCollection.Escape(task.Project.BuildFileLocalName));
+        }
+
+        private void GenerateReferences(ProjectItemGroupElement itemGroup, CscTask task)
+        {
+            foreach(var reference in task.References.FileNames)
+            {
+                var name = Path.GetFileNameWithoutExtension(reference);
+                itemGroup.AddItem(
+                    "Reference",
+                    name,
+                    new[]
+                    {
+                        new KeyValuePair<string, string>("Name", name),
+                        new KeyValuePair<string, string>("HintPath", MB.ProjectCollection.Escape(reference))
+                    });            
+            }
+            foreach (var reference in new[] { "mscorlib", "System", "System.Xml" })
+            {
+                itemGroup.AddItem("Reference", reference);
+            }
+        }
+
         private void SetKnownProperties(ProjectPropertyGroupElement properties, CscTask task)
         {
+            // MSBuild properties http://msdn.microsoft.com/en-us/library/bb629394.aspx
+            // NAnt CscTask properties http://nant.sourceforge.net/nightly/latest/help/tasks/csc.html
             if(!String.IsNullOrWhiteSpace(task.BaseAddress))
                 properties.AddProperty("BaseAddress", task.BaseAddress);
             properties.AddProperty("CheckForOverflowUnderflow", task.Checked.ToString());
-            // TODO: codepage
+            properties.AddProperty("CodePage", task.Codepage ?? String.Empty);
             properties.AddProperty("DebugSymbols", task.Debug.ToString());
             if (task.DebugOutput == DebugOutput.Enable)
+            {
                 task.DebugOutput = DebugOutput.Full;
+                task.Define = String.Format("DEBUG,TRACE,{0}", task.Define);
+            }
             properties.AddProperty("DebugType", task.DebugOutput.ToString());
             if(task.DocFile != null)
                 properties.AddProperty("DocumentationFile", MB.ProjectCollection.Escape(task.DocFile.FullName));
-            if(task.FileAlign != 0)
+            if(task.FileAlign > 0)
                 properties.AddProperty("FileAlignment", task.FileAlign.ToString(CultureInfo.InvariantCulture));
             // TODO: langversion
             // TODO: noconfig
@@ -80,6 +129,7 @@ namespace GenerateMsBuildTask
             properties.AddProperty("TreatWarningsAsErrors", task.WarnAsError.ToString());
             // TODO: win32icon
             // TODO: win32res
+            // TODO: warnings to ignore (see CompilerBase.WriteNoWarnList())
         }
 
         public void TaskStarted(object sender, BuildEventArgs e)
