@@ -27,6 +27,7 @@ using NAnt.Core.Attributes;
 
 using MB = Microsoft.Build.Evaluation;
 using System.IO;
+using Microsoft.Build.Construction;
 
 namespace GenerateMsBuildTask
 {
@@ -39,7 +40,7 @@ namespace GenerateMsBuildTask
             {"resgen", new ResgenTranslator()}
         };
 
-        private IDictionary<string, ProjectInfo> projectOutputs = new Dictionary<string, ProjectInfo>();
+        private IDictionary<string, ProjectRootElement> projectOutputs = new Dictionary<string, ProjectRootElement>();
 
         protected override void ExecuteTask()
         {
@@ -94,16 +95,16 @@ namespace GenerateMsBuildTask
         {
         }
 
-        internal ProjectInfo FindProjectReference(string dependencyFileName)
+        internal ProjectRootElement FindProjectReference(string dependencyFileName)
         {
             return projectOutputs.ContainsKey(dependencyFileName)
                 ? projectOutputs[dependencyFileName]
                 : null;
         }
 
-        internal void RegisterProjectInSolution(string outputFileName, string projectFilePath, Guid projectTypeGuid, Guid projectGuid)
+        internal void RegisterProjectInSolution(ProjectRootElement projectRoot)
         {
-            projectOutputs[outputFileName] = new ProjectInfo(projectTypeGuid, projectFilePath, projectGuid);
+            projectOutputs[projectRoot.GetOutputFileName()] = projectRoot;
         }
 
         private void GenerateSolutionFile(NAnt.Core.Project Project)
@@ -121,9 +122,9 @@ namespace GenerateMsBuildTask
                 {
                     solution.WriteLine(
                         "Project(\"{0:B}\") = \"{1}\", \"{1}\", \"{2:B}\"",
-                        project.TypeId,
-                        project.FilePath,
-                        project.ProjectId);
+                        project.GetTypeId(),
+                        project.FullPath,
+                        project.GetProjectId());
                     solution.WriteLine("EndProject");
                 }
                 solution.WriteLine("Project(\"{2150E333-8FDC-42A3-9474-1A3956D46DE8}\") = \"Solution Items\", \"Solution Items\", \"{4D8FAB75-E6D2-4581-B7F0-BB11BCCEE0CA}\"");

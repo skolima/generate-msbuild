@@ -63,15 +63,14 @@ namespace GenerateMsBuildTask
                     task.Sources.BaseDirectory.FullName,
                     Path.DirectorySeparatorChar,
                     Path.GetFileNameWithoutExtension(task.OutputFile.Name));
-            var projectGuid = Guid.NewGuid();
 
             project.DefaultTargets = "Build";
-            SetKnownProperties(project.AddPropertyGroup(), task, projectGuid);
+            SetKnownProperties(project.AddPropertyGroup(), task);
             GenerateReferences(project.AddItemGroup(), task, generator);
             GenerateCompileIncludes(project.AddItemGroup(), task);
             project.AddImport(String.Format("$(MSBuildToolsPath){0}Microsoft.CSharp.targets", Path.DirectorySeparatorChar));
 
-            generator.RegisterProjectInSolution(task.OutputFile.FullName, projectFileName, projectTypeGuid, projectGuid);
+            generator.RegisterProjectInSolution(project);
             project.Save(projectFileName);
         }
 
@@ -128,11 +127,11 @@ namespace GenerateMsBuildTask
                 {
                     itemGroup.AddItem(
                         "ProjectReference",
-                        MB.ProjectCollection.Escape(matchedProject.FilePath),
+                        MB.ProjectCollection.Escape(matchedProject.FullPath),
                         new[]
                         {
-                            new KeyValuePair<string, string>("Project", matchedProject.ProjectId.ToString("B")),
-                            new KeyValuePair<string, string>("Package", matchedProject.TypeId.ToString("B"))
+                            new KeyValuePair<string, string>("Project", matchedProject.GetProjectId().ToString("B")),
+                            new KeyValuePair<string, string>("Package", matchedProject.GetTypeId().ToString("B"))
                         });
                 }
             }
@@ -142,12 +141,12 @@ namespace GenerateMsBuildTask
             }
         }
 
-        private void SetKnownProperties(ProjectPropertyGroupElement properties, CscTask task, Guid projectGuid)
+        private void SetKnownProperties(ProjectPropertyGroupElement properties, CscTask task)
         {
             // MSBuild properties http://msdn.microsoft.com/en-us/library/bb629394.aspx
             // NAnt CscTask properties http://nant.sourceforge.net/nightly/latest/help/tasks/csc.html
             properties.AddProperty("AssemblyName", Path.GetFileNameWithoutExtension(task.OutputFile.FullName));
-            properties.AddProperty("ProjectGuid", projectGuid.ToString("B"));
+            properties.AddProperty("ProjectGuid", Guid.NewGuid().ToString("B"));
             if(!String.IsNullOrWhiteSpace(task.BaseAddress))
                 properties.AddProperty("BaseAddress", task.BaseAddress);
             properties.AddProperty("CheckForOverflowUnderflow", task.Checked.ToString());
@@ -168,6 +167,7 @@ namespace GenerateMsBuildTask
             // TODO: nostdlib
             properties.AddProperty("Optimize", task.Optimize.ToString());
             properties.AddProperty("Platform", task.Platform ?? "AnyCPU");
+            properties.AddProperty("ProjectTypeGuids", projectTypeGuid.ToString("B"));
             properties.AddProperty("AllowUnsafeBlocks", task.Unsafe.ToString());
             properties.AddProperty("WarningLevel", task.WarningLevel ?? "4");
             properties.AddProperty("OutputPath", MB.ProjectCollection.Escape(task.OutputFile.Directory.FullName));
@@ -187,6 +187,6 @@ namespace GenerateMsBuildTask
             properties.AddProperty("NoWarn", warnings.ToString());
         }
 
-        private static readonly Guid projectTypeGuid = new Guid("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}");
+        private static readonly Guid projectTypeGuid = Guid.Parse("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}");
     }
 }

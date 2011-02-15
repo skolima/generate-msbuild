@@ -49,13 +49,13 @@
   <ItemGroup>
     <Compile Include="CscTranslator.cs" />
     <Compile Include="GenerateMsBuildTask.cs" />
-    <Compile Include="ProjectInfo.cs" />
+    <Compile Include="ProjectRootElementExtensions.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="ResgenTranslator.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
-    <PostBuildEvent>xcopy /y $(TargetDir)*.* C:\Users\skolima\Desktop\nant-0.91-alpha2\extensions\common\neutral\</PostBuildEvent>
+    <PostBuildEvent>xcopy /y $(TargetDir)*.* C:\Users\skolima\Desktop\NAnt\extensions\common\neutral</PostBuildEvent>
   </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
