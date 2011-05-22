@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-/*
+﻿/*
  * generate-msbuild NAnt task
  * Copyright (C) 2011, Leszek 'skolima' Ciesielski
  * 
@@ -19,9 +16,10 @@ using System.Linq;
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-using System.Text;
-using Microsoft.Build.Construction;
+using System;
 using System.IO;
+using System.Linq;
+using Microsoft.Build.Construction;
 
 namespace GenerateMsBuildTask
 {
