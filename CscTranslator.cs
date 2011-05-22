@@ -26,6 +26,7 @@ using NAnt.Core;
 using NAnt.DotNet.Tasks;
 using NAnt.DotNet.Types;
 using MB = Microsoft.Build.Evaluation;
+using Microsoft.Build.Exceptions;
 
 namespace GenerateMsBuildTask
 {
@@ -52,35 +53,44 @@ namespace GenerateMsBuildTask
 		}
 
 		public void TaskFinished(object sender, BuildEventArgs e)
-		{            
+		{
 			var task = (CscTask)e.Task;
 			var generator = (GenerateMsBuildTask)sender;
-			var project = ProjectRootElement.Create();
 			var projectFileName = String.Format(
-					"{0}{1}_{2}.csproj",
+					"{0}{1}{2}.csproj",
 					task.Sources.BaseDirectory.FullName,
 					Path.DirectorySeparatorChar,
 					Path.GetFileNameWithoutExtension(task.OutputFile.Name));
 
+			ProjectRootElement project = null;
+			if (!File.Exists(projectFileName))
+				project = ProjectRootElement.Create(projectFileName);
+			else
+				project = ProjectRootElement.Open(projectFileName);
+			var projectManipulator = new MB.Project(project);
+
 			project.DefaultTargets = "Build";
-			SetKnownProperties(project.AddPropertyGroup(), task);
-			GenerateReferences(project.AddItemGroup(), task, generator);
-			GenerateCompileIncludes(project.AddItemGroup(), task);
-			project.AddImport(String.Format("$(MSBuildToolsPath){0}Microsoft.CSharp.targets", Path.DirectorySeparatorChar));
+			SetKnownProperties(project, task);
+			GenerateReferences(project, projectManipulator, task, generator);
+			GenerateCompileIncludes(project, projectManipulator, task);
+			project.EnsureImportExists("$(MSBuildToolsPath)\\Microsoft.CSharp.targets");
 
 			generator.RegisterProjectInSolution(project);
-			project.Save(projectFileName);
+			project.Save();
 		}
 
 		public void TaskStarted(object sender, BuildEventArgs e)
 		{
 		}
 
-		private void GenerateCompileIncludes(ProjectItemGroupElement itemGroup, CscTask task)
+		private void GenerateCompileIncludes(ProjectRootElement project, MB.Project projectManipulator, CscTask task)
 		{
+			projectManipulator.RemoveItems(projectManipulator.GetItemsIgnoringCondition("Compile"));
+			projectManipulator.RemoveItems(projectManipulator.GetItemsIgnoringCondition("EmbeddedResource"));
+
 			foreach (var include in task.Sources.FileNames)
 			{
-				itemGroup.AddItem(
+				project.AddItem(
 					"Compile",
 					MB.ProjectCollection.Escape(new FileInfo(include).GetPathRelativeTo(task.BaseDirectory)),
 					new[]
@@ -92,7 +102,7 @@ namespace GenerateMsBuildTask
 			{
 				foreach (var resource in resourceList.FileNames)
 				{
-					itemGroup.AddItem(
+					project.AddItem(
 						"EmbeddedResource",
 						MB.ProjectCollection.Escape(new FileInfo(resource).GetPathRelativeTo(task.BaseDirectory)),
 						new[]
@@ -101,12 +111,15 @@ namespace GenerateMsBuildTask
 						});
 				}
 			}
-			itemGroup.AddItem("None", MB.ProjectCollection.Escape(
+			project.EnsureItemExists("None", MB.ProjectCollection.Escape(
 				new FileInfo(task.Project.BuildFileLocalName).GetPathRelativeTo(task.BaseDirectory)));
 		}
 
-		private void GenerateReferences(ProjectItemGroupElement itemGroup, CscTask task, GenerateMsBuildTask generator)
-		{
+		private void GenerateReferences(ProjectRootElement project, MB.Project projectManipulator, CscTask task, GenerateMsBuildTask generator)
+		{			
+			projectManipulator.RemoveItems(projectManipulator.GetItemsIgnoringCondition("Reference"));
+			projectManipulator.RemoveItems(projectManipulator.GetItemsIgnoringCondition("ProjectReference"));
+
 			foreach(var reference in task.References.FileNames)
 			{
 				var name = Path.GetFileNameWithoutExtension(reference);
@@ -114,7 +127,7 @@ namespace GenerateMsBuildTask
 				var matchedProject = generator.FindProjectReference(relativeReference);
 				if (matchedProject == null)
 				{
-					itemGroup.AddItem(
+					project.AddItem(
 						"Reference",
 						name,
 						new[]
@@ -125,7 +138,7 @@ namespace GenerateMsBuildTask
 				}
 				else
 				{
-					itemGroup.AddItem(
+					project.AddItem(
 						"ProjectReference",
 						MB.ProjectCollection.Escape(matchedProject.FullPath),
 						new[]
@@ -137,54 +150,54 @@ namespace GenerateMsBuildTask
 			}
 			foreach (var reference in new[] { "mscorlib", "System", "System.Xml" })
 			{
-				itemGroup.AddItem("Reference", reference);
+				project.AddItem("Reference", reference, new[] { new KeyValuePair<string, string>("Name", reference) });
 			}
 		}
 
-		private void SetKnownProperties(ProjectPropertyGroupElement properties, CscTask task)
+		private void SetKnownProperties(ProjectRootElement project, CscTask task)
 		{
 			// MSBuild properties http://msdn.microsoft.com/en-us/library/bb629394.aspx
 			// NAnt CscTask properties http://nant.sourceforge.net/nightly/latest/help/tasks/csc.html
-			properties.AddProperty("AssemblyName", Path.GetFileNameWithoutExtension(task.OutputFile.Name));
-			properties.AddProperty("ProjectGuid", Guid.NewGuid().ToString("B"));
-			if(!String.IsNullOrWhiteSpace(task.BaseAddress))
-				properties.AddProperty("BaseAddress", task.BaseAddress);
-			properties.AddProperty("CheckForOverflowUnderflow", task.Checked.ToString());
-			properties.AddProperty("CodePage", task.Codepage ?? String.Empty);
-			properties.AddProperty("DebugSymbols", task.Debug.ToString());
+			project.SetDefaultPropertyValue("AssemblyName", Path.GetFileNameWithoutExtension(task.OutputFile.Name));
+			project.EnsurePropertyExists("ProjectGuid", Guid.NewGuid().ToString("B"));
+			if (!String.IsNullOrWhiteSpace(task.BaseAddress))
+				project.SetDefaultPropertyValue("BaseAddress", task.BaseAddress);
+			project.SetDefaultPropertyValue("CheckForOverflowUnderflow", task.Checked.ToString());
+			project.SetDefaultPropertyValue("CodePage", task.Codepage ?? String.Empty);
+			project.SetDefaultPropertyValue("DebugSymbols", task.Debug.ToString());
 			if (task.DebugOutput == DebugOutput.Enable)
 			{
 				task.DebugOutput = DebugOutput.Full;
 				task.Define = String.Format("DEBUG,TRACE,{0}", task.Define);
 			}
-			properties.AddProperty("DebugType", task.DebugOutput.ToString());
-			if(task.DocFile != null)
-				properties.AddProperty("DocumentationFile", MB.ProjectCollection.Escape(task.DocFile.GetPathRelativeTo(task.BaseDirectory)));
-			if(task.FileAlign > 0)
-				properties.AddProperty("FileAlignment", task.FileAlign.ToString(CultureInfo.InvariantCulture));
+			project.SetDefaultPropertyValue("DebugType", task.DebugOutput.ToString());
+			if (task.DocFile != null)
+				project.SetDefaultPropertyValue("DocumentationFile", MB.ProjectCollection.Escape(task.DocFile.GetPathRelativeTo(task.BaseDirectory)));
+			if (task.FileAlign > 0)
+				project.SetDefaultPropertyValue("FileAlignment", task.FileAlign.ToString(CultureInfo.InvariantCulture));
 			// TODO: langversion
 			// TODO: noconfig
 			// TODO: nostdlib
-			properties.AddProperty("Optimize", task.Optimize.ToString());
-			properties.AddProperty("Platform", task.Platform ?? "AnyCPU");
-			properties.AddProperty("ProjectTypeGuids", projectTypeGuid.ToString("B"));
-			properties.AddProperty("AllowUnsafeBlocks", task.Unsafe.ToString());
-			properties.AddProperty("WarningLevel", task.WarningLevel ?? "4");
-			properties.AddProperty("OutputPath", MB.ProjectCollection.Escape(task.OutputFile.Directory.GetPathRelativeTo(task.BaseDirectory)));
-			properties.AddProperty("OutputType", task.OutputTarget);
-			properties.AddProperty("DefineConstants", task.Define ?? String.Empty);
+			project.SetDefaultPropertyValue("Optimize", task.Optimize.ToString());
+			project.SetDefaultPropertyValue("Platform", task.Platform ?? "AnyCPU");
+			project.SetDefaultPropertyValue("ProjectTypeGuids", projectTypeGuid.ToString("B"));
+			project.SetDefaultPropertyValue("AllowUnsafeBlocks", task.Unsafe.ToString());
+			project.SetDefaultPropertyValue("WarningLevel", task.WarningLevel ?? "4");
+			project.SetDefaultPropertyValue("OutputPath", MB.ProjectCollection.Escape(task.OutputFile.Directory.GetPathRelativeTo(task.BaseDirectory)));
+			project.SetDefaultPropertyValue("OutputType", task.OutputTarget);
+			project.SetDefaultPropertyValue("DefineConstants", task.Define ?? String.Empty);
 			// TODO: delaysign
 			// TODO: keycontainer
 			// TODO: main
-			properties.AddProperty("TreatWarningsAsErrors", task.WarnAsError.ToString());
+			project.SetDefaultPropertyValue("TreatWarningsAsErrors", task.WarnAsError.ToString());
 			// TODO: win32icon
 			// TODO: win32res
 			// TODO: implement the rest of warning-disabling/enabling logic (see CompilerBase.WriteNoWarnList())
 			var warnings = new StringBuilder();
-			foreach(var warning in task.SuppressWarnings)
-				if(warning.IfDefined && ! warning.UnlessDefined)
-				warnings.AppendFormat("{0},", warning.Number);
-			properties.AddProperty("NoWarn", warnings.ToString());
+			foreach (var warning in task.SuppressWarnings)
+				if (warning.IfDefined && !warning.UnlessDefined)
+					warnings.AppendFormat("{0},", warning.Number);
+			project.SetDefaultPropertyValue("NoWarn", warnings.ToString());
 		}
 
 		private static readonly Guid projectTypeGuid = Guid.Parse("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}");

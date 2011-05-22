@@ -23,48 +23,82 @@ using Microsoft.Build.Construction;
 
 namespace GenerateMsBuildTask
 {
-    static class ProjectRootElementExtensions
-    {
-        public static Guid GetTypeId(this ProjectRootElement project)
-        {
-            var value = project.Properties.Where(p => p.Name == "ProjectTypeGuids").First().Value;
-            var split = value.Split(new[] {';'}, 1, StringSplitOptions.RemoveEmptyEntries);
-            return Guid.Parse(split[0]);
-        }
+	static class ProjectRootElementExtensions
+	{
+		public static Guid GetTypeId(this ProjectRootElement project)
+		{
+			var value = project.Properties.Where(p => p.Name == "ProjectTypeGuids").First().Value;
+			var split = value.Split(new[] {';'}, 1, StringSplitOptions.RemoveEmptyEntries);
+			return Guid.Parse(split[0]);
+		}
 
-        public static Guid GetProjectId(this ProjectRootElement project)
-        {
-            var value = project.Properties.Where(p => p.Name == "ProjectGuid").First().Value;
-            return Guid.Parse(value);
-        }
+		public static Guid GetProjectId(this ProjectRootElement project)
+		{
+			var value = project.Properties.Where(p => p.Name == "ProjectGuid").First().Value;
+			return Guid.Parse(value);
+		}
 
-        public static string GetOutputFileName(this ProjectRootElement project)
-        {
-            string extension;
-            switch(project.GetOutputType().ToLower())
-            {
-                case "exe": extension = ".exe"; break;
-                case "library": extension = ".dll"; break;
-                case "winexe": extension = ".exe"; break;
-                default: extension = string.Empty; break;
-            }
+		public static string GetOutputFileName(this ProjectRootElement project)
+		{
+			string extension;
+			switch(project.GetOutputType().ToLower())
+			{
+				case "exe": extension = ".exe"; break;
+				case "library": extension = ".dll"; break;
+				case "winexe": extension = ".exe"; break;
+				default: extension = string.Empty; break;
+			}
 
-            return string.Format("{0}{3}{1}{2}", project.GetOutputPath(), project.GetAssemblyName(), extension, Path.DirectorySeparatorChar);
-        }
+			return string.Format("{0}{3}{1}{2}", project.GetOutputPath(), project.GetAssemblyName(), extension, Path.DirectorySeparatorChar);
+		}
 
-        public static string GetOutputPath(this ProjectRootElement project)
-        {
-            return project.Properties.Where(p => p.Name == "OutputPath").First().Value;
-        }
+		public static string GetOutputPath(this ProjectRootElement project)
+		{
+			return project.Properties.Where(p => p.Name == "OutputPath").First().Value;
+		}
 
-        public static string GetAssemblyName(this ProjectRootElement project)
-        {
-            return project.Properties.Where(p => p.Name == "AssemblyName").First().Value;
-        }
+		public static string GetAssemblyName(this ProjectRootElement project)
+		{
+			return project.Properties.Where(p => p.Name == "AssemblyName").First().Value;
+		}
 
-        public static string GetOutputType(this ProjectRootElement project)
-        {
-            return project.Properties.Where(p => p.Name == "OutputType").First().Value;
-        }
-    }
+		public static string GetOutputType(this ProjectRootElement project)
+		{
+			return project.Properties.Where(p => p.Name == "OutputType").First().Value;
+		}
+
+		public static void EnsureImportExists(this ProjectRootElement project, string importedProject)
+		{
+			var existing = project.Imports.Where(p => p.Project.Equals(importedProject, StringComparison.OrdinalIgnoreCase)).FirstOrDefault();
+			if (existing == null)
+				project.AddImport(importedProject);
+		}
+
+		public static void EnsurePropertyExists(this ProjectRootElement project, string name, string value)
+		{
+			var existing = project.Properties.Where(
+				p => p.Name == name && string.IsNullOrEmpty(p.Condition) && string.IsNullOrEmpty(p.Parent.Condition))
+				.FirstOrDefault();
+			if (existing == null)
+				project.AddProperty(name, value);
+		}
+
+		public static void SetDefaultPropertyValue(this ProjectRootElement project, string name, string value)
+		{
+			var existing = project.Properties.Where(
+				p => p.Name == name && string.IsNullOrEmpty(p.Condition) && string.IsNullOrEmpty(p.Parent.Condition))
+				.FirstOrDefault();
+			if (existing == null)
+				existing = project.AddProperty(name, value);
+			else
+				existing.Value = value;
+		}
+
+		public static void EnsureItemExists(this ProjectRootElement project, string itemType, string include)
+		{
+			var existing = project.Items.Where(p => p.ItemType == itemType && p.Include == include).FirstOrDefault();
+			if (existing == null)
+				project.AddItem(itemType, include);
+		}
+	}
 }
