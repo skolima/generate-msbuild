@@ -61,6 +61,7 @@
   </Target-->
   <Target Name="AfterBuild">
     <Copy SourceFiles="$(TargetPath)" DestinationFolder="..\NAnt\extensions\common\neutral" />
-    <Copy SourceFiles="$(TargetDir)$(TargetName).pdb" DestinationFolder="..\NAnt\extensions\common\neutral" />
+    <Copy ContinueOnError="true" SourceFiles="$(TargetDir)$(TargetName).pdb" DestinationFolder="..\NAnt\extensions\common\neutral" />
+    <Copy ContinueOnError="true" SourceFiles="$(TargetPath).mdb" DestinationFolder="..\NAnt\extensions\common\neutral" />
   </Target>
 </Project>
