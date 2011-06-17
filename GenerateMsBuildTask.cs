@@ -82,7 +82,7 @@ namespace GenerateMsBuildTask
 
         public void TaskFinished(object sender, BuildEventArgs e)
         {
-            if (e.Exception == null)
+            if (e.Exception == null && !string.IsNullOrEmpty(e.Task.Name))
             {
                 if (taskTranslators.ContainsKey(e.Task.Name))
                 {
