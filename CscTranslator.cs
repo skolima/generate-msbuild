@@ -92,7 +92,7 @@ namespace GenerateMsBuildTask
 			{
 				project.AddItem(
 					"Compile",
-					MB.ProjectCollection.Escape(new FileInfo(include).GetPathRelativeTo(task.BaseDirectory)),
+					MB.ProjectCollection.Escape(new FileInfo(include).GetPathRelativeTo(new DirectoryInfo(project.DirectoryPath))),
 					new[]
 					{
 						new KeyValuePair<string, string>("SubType", "Code")
@@ -104,7 +104,7 @@ namespace GenerateMsBuildTask
 				{
 					project.AddItem(
 						"EmbeddedResource",
-						MB.ProjectCollection.Escape(new FileInfo(resource).GetPathRelativeTo(task.BaseDirectory)),
+						MB.ProjectCollection.Escape(new FileInfo(resource).GetPathRelativeTo(new DirectoryInfo(project.DirectoryPath))),
 						new[]
 						{
 							new KeyValuePair<string, string>("LogicalName", resourceList.GetManifestResourceName(resource))
@@ -112,7 +112,7 @@ namespace GenerateMsBuildTask
 				}
 			}
 			project.EnsureItemExists("None", MB.ProjectCollection.Escape(
-				new FileInfo(task.Project.BuildFileLocalName).GetPathRelativeTo(task.BaseDirectory)));
+				new FileInfo(task.Project.BuildFileLocalName).GetPathRelativeTo(new DirectoryInfo(project.DirectoryPath))));
 		}
 
 		private void GenerateReferences(ProjectRootElement project, MB.Project projectManipulator, CscTask task, GenerateMsBuildTask generator)
@@ -123,7 +123,7 @@ namespace GenerateMsBuildTask
 			foreach(var reference in task.References.FileNames)
 			{
 				var name = Path.GetFileNameWithoutExtension(reference);
-				var relativeReference = new FileInfo(reference).GetPathRelativeTo(task.BaseDirectory);
+				var relativeReference = new FileInfo(reference).GetPathRelativeTo(new DirectoryInfo(project.DirectoryPath));
 				var matchedProject = generator.FindProjectReference(relativeReference);
 				if (matchedProject == null)
 				{
@@ -140,11 +140,11 @@ namespace GenerateMsBuildTask
 				{
 					project.AddItem(
 						"ProjectReference",
-						MB.ProjectCollection.Escape(matchedProject.FullPath),
+						MB.ProjectCollection.Escape(new FileInfo(matchedProject.FullPath).GetPathRelativeTo(new DirectoryInfo(project.DirectoryPath))),
 						new[]
 						{
 							new KeyValuePair<string, string>("Project", matchedProject.GetProjectId().ToString("B")),
-							new KeyValuePair<string, string>("Package", matchedProject.GetTypeId().ToString("B"))
+							new KeyValuePair<string, string>("Name", matchedProject.GetAssemblyName())
 						});
 				}
 			}
@@ -172,7 +172,8 @@ namespace GenerateMsBuildTask
 			}
 			project.SetDefaultPropertyValue("DebugType", task.DebugOutput.ToString());
 			if (task.DocFile != null)
-				project.SetDefaultPropertyValue("DocumentationFile", MB.ProjectCollection.Escape(task.DocFile.GetPathRelativeTo(task.BaseDirectory)));
+				project.SetDefaultPropertyValue("DocumentationFile",
+					MB.ProjectCollection.Escape(task.DocFile.GetPathRelativeTo(new DirectoryInfo(project.DirectoryPath))));
 			if (task.FileAlign > 0)
 				project.SetDefaultPropertyValue("FileAlignment", task.FileAlign.ToString(CultureInfo.InvariantCulture));
 			// TODO: langversion
@@ -183,7 +184,8 @@ namespace GenerateMsBuildTask
 			project.SetDefaultPropertyValue("ProjectTypeGuids", projectTypeGuid.ToString("B"));
 			project.SetDefaultPropertyValue("AllowUnsafeBlocks", task.Unsafe.ToString());
 			project.SetDefaultPropertyValue("WarningLevel", task.WarningLevel ?? "4");
-			project.SetDefaultPropertyValue("OutputPath", MB.ProjectCollection.Escape(task.OutputFile.Directory.GetPathRelativeTo(task.BaseDirectory)));
+			project.SetDefaultPropertyValue("OutputPath",
+				MB.ProjectCollection.Escape(task.OutputFile.Directory.GetPathRelativeTo(new DirectoryInfo(project.DirectoryPath))));
 			project.SetDefaultPropertyValue("OutputType", task.OutputTarget);
 			project.SetDefaultPropertyValue("DefineConstants", task.Define ?? String.Empty);
 			// TODO: delaysign
