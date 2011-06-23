@@ -60,8 +60,11 @@
   <Target Name="BeforeBuild">
   </Target-->
   <Target Name="AfterBuild">
-    <Copy SourceFiles="$(TargetPath)" DestinationFolder="..\NAnt\extensions\common\neutral" />
-    <Copy ContinueOnError="true" SourceFiles="$(TargetDir)$(TargetName).pdb" DestinationFolder="..\NAnt\extensions\common\neutral" />
-    <Copy ContinueOnError="true" SourceFiles="$(TargetPath).mdb" DestinationFolder="..\NAnt\extensions\common\neutral" />
+    <PropertyGroup>
+      <ExtensionsFolder>..\NAnt\extensions\common\neutral</ExtensionsFolder>
+    </PropertyGroup>
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(ExtensionsFolder)" />
+    <Copy ContinueOnError="true" SourceFiles="$(TargetDir)$(TargetName).pdb" DestinationFolder="$(ExtensionsFolder)" />
+    <Copy ContinueOnError="true" SourceFiles="$(TargetPath).mdb" DestinationFolder="$(ExtensionsFolder)" />
   </Target>
 </Project>

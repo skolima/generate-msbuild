@@ -109,12 +109,12 @@ namespace GenerateMsBuildTask
 
         private void GenerateSolutionFile(NAnt.Core.Project Project)
         {
-            var solutionPath = String.Format(
+            var solutionPath = new FileInfo(String.Format(
                     "{0}{1}_{2}.sln",
                     new FileInfo(Project.BuildFileLocalName).DirectoryName,
                     Path.DirectorySeparatorChar,
-                    Project.ProjectName);
-            using (var solution = File.CreateText(solutionPath))
+                    Project.ProjectName));
+            using (var solution = solutionPath.CreateText())
             {
                 solution.WriteLine(@"Microsoft Visual Studio Solution File, Format Version 11.00");
                 solution.WriteLine("# Visual Studio 2010");
@@ -123,13 +123,13 @@ namespace GenerateMsBuildTask
                     solution.WriteLine(
                         "Project(\"{0:B}\") = \"{1}\", \"{1}\", \"{2:B}\"",
                         project.GetTypeId(),
-                        project.FullPath,
+                        new FileInfo(project.FullPath).GetPathRelativeTo(solutionPath.Directory),
                         project.GetProjectId());
                     solution.WriteLine("EndProject");
                 }
                 solution.WriteLine("Project(\"{2150E333-8FDC-42A3-9474-1A3956D46DE8}\") = \"Solution Items\", \"Solution Items\", \"{4D8FAB75-E6D2-4581-B7F0-BB11BCCEE0CA}\"");
                 solution.WriteLine("	ProjectSection(SolutionItems) = preProject");
-                solution.WriteLine("		{0} = {0}", Project.BuildFileLocalName);
+                solution.WriteLine("		{0} = {0}", new FileInfo(Project.BuildFileLocalName).GetPathRelativeTo(solutionPath.Directory));
                 solution.WriteLine("	EndProjectSection");
                 solution.WriteLine("EndProject");
             }
