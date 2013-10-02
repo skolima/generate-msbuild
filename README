@@ -6,12 +6,12 @@ NAnt task that generates a Visual Studio project from a NAnt build file.
 Usage instructions
 ------------------
 
-Add <generate-msbuild /> as the first element under <project> in your NAnt build file. Run your build normally, and generate-msbuild will record it and save as a Visual Studio 2010 build file. If project files already exist, they will be updated with settings captured during the NAnt build.
+Add <generate-msbuild /> as the first element under <project> in your NAnt build file. Place the GenerateMsBuildTask.dll in /extensions/common/neutral/ subfolder of your project. Run your build normally, and generate-msbuild will record it and save as a Visual Studio 2010 build file. If project files already exist, they will be updated with settings captured during the NAnt build.
 
 Missing things
 --------------
 
-* more testing (done on NAnt and CruiseControl.Net so far)
+* more testing (done on NAnt, CruiseControl.Net and Boo so far)
 
 Possible extensions
 --------------
